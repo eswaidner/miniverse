@@ -28,9 +28,9 @@ pub fn Engine(modules: []const type) type {
 
             // try entities.init();
 
-            // init extensions
-            inline for (modules) |ext| {
-                if (std.meta.hasFn(ext, "init")) try ext.init();
+            // init modules
+            inline for (modules) |mod| {
+                if (std.meta.hasFn(mod, "init")) try mod.init();
             }
 
             if (startCallback) |f| f();
@@ -46,8 +46,8 @@ pub fn Engine(modules: []const type) type {
             // deinit modules (in reverse init order)
             if (modules.len > 0) {
                 inline for (1..modules.len) |i| {
-                    const ext = modules[modules.len - i];
-                    if (std.meta.hasFn(ext, "deinit")) ext.deinit();
+                    const mod = modules[modules.len - i];
+                    if (std.meta.hasFn(mod, "deinit")) mod.deinit();
                 }
             }
 
