@@ -13,8 +13,8 @@ pub const Player = struct {};
 pub fn init() !void {
     hpStore = .{};
     playerStore = .{};
-    entities.registerAttribute(Hitpoints, &hpStore);
-    entities.registerAttribute(Player, &playerStore);
+    entities.registerAttribute(Hitpoints, hpStore.interface());
+    entities.registerAttribute(Player, playerStore.interface());
 
     const e1 = entities.createEntity();
 
@@ -47,7 +47,7 @@ pub fn init() !void {
 
     std.log.debug("-----------------", .{});
 
-    // entities.deleteEntity(e1);
+    entities.deleteEntity(e1);
 }
 
 pub fn deinit() void {}

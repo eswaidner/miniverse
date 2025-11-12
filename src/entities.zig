@@ -6,7 +6,7 @@ const Allocator = std.mem.Allocator;
 
 pub const Entity = enum(u64) { null = 0, _ };
 
-const AttributeStoreMap = std.AutoHashMap(utils.TypeId, *anyopaque);
+const AttributeStoreMap = std.AutoHashMap(utils.TypeId, AttributeStoreInterface);
 var attributeStores: AttributeStoreMap = undefined;
 
 var nextEntityId: u64 = 1;
@@ -20,7 +20,7 @@ pub fn deinit() void {
     attributeStores.deinit();
 }
 
-pub fn registerAttribute(T: type, store: *anyopaque) void {
+pub fn registerAttribute(T: type, store: AttributeStoreInterface) void {
     //TODO compile error if T is not struct/union/enum, singular, and non-nullable
     //TODO error on type id collision
 
@@ -34,14 +34,13 @@ pub fn createEntity() Entity {
     return ent;
 }
 
-//TODO handle with store interface
-pub fn deleteEntity(_: Entity) void {
-    // var stores = attributeStores.valueIterator();
-    // while (stores.next()) |store| {
-    //     store.set(entity, null);
-    // }
+pub fn deleteEntity(entity: Entity) void {
+    var stores = attributeStores.valueIterator();
+    while (stores.next()) |store| {
+        store.delete(entity);
+    }
 
-    // entityCount -= 1;
+    entityCount -= 1;
 }
 
 pub fn getAttribute(T: type, entity: Entity) ?*const T {
@@ -59,6 +58,15 @@ pub fn setAttribute(T: type, entity: Entity, value: ?T) void {
 fn getAttributeStore(T: type) ?*AttributeStore(T) {
     return @ptrCast(@alignCast(attributeStores.getPtr(utils.typeId(T))));
 }
+
+const AttributeStoreInterface = struct {
+    ptr: *anyopaque,
+    deleteFn: *const fn (ptr: *anyopaque, entity: Entity) void,
+
+    fn delete(self: *AttributeStoreInterface, entity: Entity) void {
+        self.deleteFn(self.ptr, entity);
+    }
+};
 
 pub fn AttributeStore(T: type) type {
     return struct {
@@ -110,6 +118,15 @@ pub fn AttributeStore(T: type) type {
             } else {
                 self.entries[idx.?] = .{ .entity = entity, .value = value.?.* };
             }
+        }
+
+        fn delete(selfPtr: *anyopaque, entity: Entity) void {
+            const self: *Self = @ptrCast(@alignCast(selfPtr));
+            self.set(entity, null);
+        }
+
+        pub fn interface(self: *Self) AttributeStoreInterface {
+            return .{ .ptr = self, .deleteFn = &delete };
         }
     };
 }
@@ -187,12 +204,11 @@ pub fn Query(Includes: type, Excludes: []const type) type {
                 var inclBuffer: [includeFields.len]*const anyopaque = undefined;
                 var entity: Entity = undefined;
 
-                if (self.index >= self.primaryIncludeStore.len) return null;
+                // ADDING IN LOGGING STOPS INDEX OUT OF RANGE???
+                std.log.debug("INDEX: {d}", .{self.index});
 
                 // iterate until valid value is found or there are no remaining primary include entries
-                var counter: usize = 0;
                 for (self.index..self.primaryIncludeStore.len) |i| {
-                    counter += 1;
                     if (valid) break;
 
                     const primaryIncl = self.primaryIncludeStore.getNth(i);
@@ -228,6 +244,8 @@ pub fn Query(Includes: type, Excludes: []const type) type {
                     }
                 }
 
+                if (!valid) return null;
+
                 // build and return query result
                 var result: Result = undefined;
                 inline for (0..includeFields.len) |i| {
@@ -235,8 +253,7 @@ pub fn Query(Includes: type, Excludes: []const type) type {
                 }
 
                 result.entity = entity;
-
-                self.index += counter;
+                self.index += 1;
                 return result;
             }
         };
