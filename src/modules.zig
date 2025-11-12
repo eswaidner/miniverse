@@ -26,7 +26,7 @@ pub fn Engine(modules: []const type) type {
             currentInstant = startInstant;
             prevInstant = startInstant;
 
-            // try entities.init();
+            try entities.init();
 
             // init modules
             inline for (modules) |mod| {
@@ -51,7 +51,7 @@ pub fn Engine(modules: []const type) type {
                 }
             }
 
-            // entities.deinit();
+            entities.deinit();
         }
     };
 }
